@@ -1,35 +1,33 @@
 package models
 
-import "time"
+import (
+	"net/mail"
+	"time"
+)
 
-type Activity struct {
-	ID        int       `gorm:"primaryKey" json:"id"`
-	Email     string    `json:"email"`
-	Title     string    `json:"title"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	DeletedAt time.Time `gorm:"index" json:"deleted_at"`
+type ActivityModel struct {
+	ID        int `gorm:"primaryKey"`
+	Email     string
+	Title     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time `gorm:"index"`
 }
 
-func (activity *Activity) Validate() bool {
-	// todo: email must be valid email regex
-	return activity.Title != ""
+func (ActivityModel) TableName() string {
+	return "activity"
 }
 
-type ActivityResponse struct {
-	Status  string    `json:"status"`
-	Message string    `json:"message"`
-	Data    *Activity `json:"data"`
-}
+func (activity *ActivityModel) Validate() (bool, string) {
+	if activity.Email != "" {
+		_, err := mail.ParseAddress(activity.Email)
+		if err != nil {
+			return false, "invalid email address"
+		}
+	}
 
-type ActivityErrorResponse struct {
-	Status  string            `json:"status"`
-	Message string            `json:"message"`
-	Data    map[string]string `json:"data"`
-}
-
-type ActivitiesResponse struct {
-	Status  string     `json:"status"`
-	Message string     `json:"message"`
-	Data    []Activity `json:"data"`
+	if activity.Title != "" {
+		return true, ""
+	}
+	return false, "title cannot be null"
 }
