@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/mrrizal/devcode-backend-challenge/cache"
 	"github.com/mrrizal/devcode-backend-challenge/configs"
 	"github.com/mrrizal/devcode-backend-challenge/database"
 	"github.com/mrrizal/devcode-backend-challenge/routes"
@@ -28,6 +29,8 @@ func main() {
 	if err := database.InitDatabase(Config); err != nil {
 		log.Fatal(err.Error())
 	}
+
+	cache.InitCache()
 
 	routes.SetupRoutes(app)
 	app.Listen(fmt.Sprintf(":%d", Config.Port))

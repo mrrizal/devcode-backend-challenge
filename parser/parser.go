@@ -24,7 +24,7 @@ func parseActivity(activityModel *models.ActivityModel) serializer.Activity {
 	return activity
 }
 
-func GetActivityErrorResponse(c *fiber.Ctx, statusCode int, status, message string) error {
+func GetActivityResponseNoData(c *fiber.Ctx, statusCode int, status, message string) error {
 	resp := serializer.ActivityErrorResponse{
 		Status:  status,
 		Message: message,
