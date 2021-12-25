@@ -19,7 +19,7 @@ type ActivityResponse struct {
 	Data    *Activity `json:"data"`
 }
 
-type ActivityErrorResponse struct {
+type ResponseNoData struct {
 	Status  string            `json:"status"`
 	Message string            `json:"message"`
 	Data    map[string]string `json:"data"`

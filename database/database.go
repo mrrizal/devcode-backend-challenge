@@ -21,6 +21,10 @@ func InitDatabase(config configs.Conf) error {
 		return err
 	}
 
+	if err := DBConn.AutoMigrate(&models.TodoModel{}); err != nil {
+		return err
+	}
+
 	if err := DBConn.AutoMigrate(&models.ActivityModel{}); err != nil {
 		return err
 	}

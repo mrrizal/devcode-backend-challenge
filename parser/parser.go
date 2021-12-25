@@ -3,6 +3,7 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mrrizal/devcode-backend-challenge/models"
@@ -24,8 +25,25 @@ func parseActivity(activityModel *models.ActivityModel) serializer.Activity {
 	return activity
 }
 
-func GetActivityResponseNoData(c *fiber.Ctx, statusCode int, status, message string) error {
-	resp := serializer.ActivityErrorResponse{
+func parseTodo(todoModel *models.TodoModel) serializer.Todo {
+	todo := serializer.Todo{
+		ID:              todoModel.ID,
+		ActivityGroupID: strconv.Itoa(todoModel.ActivityID),
+		Title:           todoModel.Title,
+		IsActive:        todoModel.IsActive,
+		Priority:        todoModel.Priority,
+		CreatedAt:       fmt.Sprintf("%sZ", todoModel.CreatedAt.Format("2006-01-02T15:04:05.000")),
+		UpdatedAt:       fmt.Sprintf("%sZ", todoModel.UpdatedAt.Format("2006-01-02T15:04:05.000")),
+	}
+	if todoModel.DeletedAt != nil {
+		deletedAt := *todoModel.DeletedAt
+		*todo.DeletedAt = fmt.Sprintf("%sZ", deletedAt.Format("2006-01-02T15:04:05.000"))
+	}
+	return todo
+}
+
+func GetResponseNoData(c *fiber.Ctx, statusCode int, status, message string) error {
+	resp := serializer.ResponseNoData{
 		Status:  status,
 		Message: message,
 		Data:    make(map[string]string),
@@ -55,6 +73,16 @@ func GetActivitiesResponse(c *fiber.Ctx, statusCode int, status, message string,
 		Status:  status,
 		Message: message,
 		Data:    &activities,
+	}
+	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+}
+
+func GetTodoResponse(c *fiber.Ctx, statusCode int, status, message string, todoModel *models.TodoModel) error {
+	todo := parseTodo(todoModel)
+	resp := serializer.TodoResponse{
+		Status:  status,
+		Message: message,
+		Data:    &todo,
 	}
 	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
 }
