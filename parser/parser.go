@@ -86,3 +86,12 @@ func GetTodoResponse(c *fiber.Ctx, statusCode int, status, message string, todoM
 	}
 	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
 }
+
+func TodoCreateResponse(c *fiber.Ctx, statusCode int, status, message string, m *map[string]interface{}) error {
+	resp := serializer.CreateTodoResponse{
+		Status:  status,
+		Message: message,
+		Data:    m,
+	}
+	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+}

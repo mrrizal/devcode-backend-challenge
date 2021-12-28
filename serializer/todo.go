@@ -22,3 +22,9 @@ type TodosResponse struct {
 	Message string  `json:"message"`
 	Data    *[]Todo `json:"data"`
 }
+
+type CreateTodoResponse struct {
+	Status  string                  `json:"status"`
+	Message string                  `json:"message"`
+	Data    *map[string]interface{} `json:"data"`
+}
