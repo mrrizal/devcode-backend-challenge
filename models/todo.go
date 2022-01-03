@@ -12,7 +12,7 @@ var PriorityType [5]string = [5]string{"very-high", "high", "normal", "low", "ve
 type TodoModel struct {
 	gorm.Model
 	ID            int           `gorm:"primaryKey"`
-	ActivityID    int           `json:"activity_group_id"`
+	ActivityID    int           `gorm:"column:activity_group_id" json:"activity_group_id"`
 	ActivityModel ActivityModel `gorm:"foreignKey:ActivityID;references:ID"`
 	Title         string        `json:"title"`
 	IsActive      string        `json:"is_active"`
