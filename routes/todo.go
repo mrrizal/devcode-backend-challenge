@@ -1,15 +1,12 @@
 package routes
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/mrrizal/devcode-backend-challenge/cache"
 	"github.com/mrrizal/devcode-backend-challenge/database"
 	"github.com/mrrizal/devcode-backend-challenge/models"
 	"github.com/mrrizal/devcode-backend-challenge/parser"
@@ -97,29 +94,11 @@ func createTodo(c *fiber.Ctx) error {
 func getTodo(c *fiber.Ctx) error {
 	db := database.DBConn
 	todo := new(models.TodoModel)
-	cache := cache.Cache
-	expire := 120
-	key := []byte(fmt.Sprintf("todo-%s", c.Params("id")))
-
-	got, err := cache.Get(key)
-	if err == nil {
-		if err := json.Unmarshal(got, &todo); err != nil {
-			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
-		}
-		return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
-	}
 
 	db.Where("deleted_at is null").Find(&todo, c.Params("id"))
 	if todo.ID == 0 {
 		return parser.GetResponseNoData(c, 404, "Not Found",
 			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
-	}
-
-	// set cache
-	activitiesBytes := new(bytes.Buffer)
-	json.NewEncoder(activitiesBytes).Encode(todo)
-	if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
-		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
 	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
@@ -128,9 +107,7 @@ func getTodo(c *fiber.Ctx) error {
 func getTodos(c *fiber.Ctx) error {
 	var activityGroupID string
 	db := database.DBConn
-	cache := cache.Cache
 	var todos []*models.TodoModel
-	expire := 120
 
 	activityGroupID = string(c.Request().URI().QueryArgs().Peek("activity_group_id"))
 
@@ -141,15 +118,6 @@ func getTodos(c *fiber.Ctx) error {
 
 	if activityGroupID != "" {
 		key = []byte(fmt.Sprintf("%s-activity_group_id-%s", string(key), activityGroupID))
-	}
-
-	// get data from cache
-	got, err := cache.Get(key)
-	if err == nil {
-		if err := json.Unmarshal(got, &todos); err != nil {
-			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
-		}
-		return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
 	}
 
 	bucketSize := 1000
@@ -179,13 +147,6 @@ func getTodos(c *fiber.Ctx) error {
 	}
 	sort.Slice(todos, func(i, j int) bool { return todos[i].ID < todos[j].ID })
 
-	// set cache
-	todosBytes := new(bytes.Buffer)
-	json.NewEncoder(todosBytes).Encode(todos)
-	if err := cache.Set(key, todosBytes.Bytes(), expire); err != nil {
-		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
-	}
-
 	return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
 }
 
@@ -198,9 +159,6 @@ func deleteTodo(c *fiber.Ctx) error {
 		return parser.GetResponseNoData(c, 404, "Not Found", fmt.Sprintf("Todo with ID %s Not Found",
 			c.Params("id")))
 	}
-
-	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
 	return parser.GetResponseNoData(c, 200, "Success", "Success")
 }
 
@@ -264,8 +222,5 @@ func updateTodo(c *fiber.Ctx) error {
 		return parser.GetResponseNoData(c, 400, "Bad Request", errMessage)
 	}
 	db.Save(&todo)
-
-	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
 	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
 }
