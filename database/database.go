@@ -15,7 +15,6 @@ func InitDatabase(config configs.Conf) error {
 	var err error
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.MysqlUser,
 		config.MysqlPassword, config.MysqlHost, config.MysqlDBName)
-	fmt.Println(dsn)
 	DBConn, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return err
@@ -29,6 +28,5 @@ func InitDatabase(config configs.Conf) error {
 		return err
 	}
 
-	fmt.Println("connected into database.")
 	return nil
 }
