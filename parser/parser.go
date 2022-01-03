@@ -108,5 +108,10 @@ func GetTodosResponse(c *fiber.Ctx, statusCode int, status, message string, todo
 		Message: message,
 		Data:    &todos,
 	}
+
+	temp := make([]serializer.Todo, 0)
+	if len(todos) == 0 {
+		resp.Data = &temp
+	}
 	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
 }

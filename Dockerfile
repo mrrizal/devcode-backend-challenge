@@ -19,4 +19,4 @@ COPY --from=builder /app/main /app/main
 
 WORKDIR /app
 
-CMD [ "/app/main" ]
+CMD [ "sh", "-c", "/app/main" ]
