@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -48,8 +47,8 @@ func GetResponseNoData(c *fiber.Ctx, statusCode int, status, message string) err
 		Message: message,
 		Data:    make(map[string]string),
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
-
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }
 
 func GetActivityResponse(c *fiber.Ctx, statusCode int, status, message string, activityModel *models.ActivityModel) error {
@@ -59,7 +58,8 @@ func GetActivityResponse(c *fiber.Ctx, statusCode int, status, message string, a
 		Message: message,
 		Data:    &activity,
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }
 
 func GetActivitiesResponse(c *fiber.Ctx, statusCode int, status, message string, activitiesModel []*models.ActivityModel) error {
@@ -74,7 +74,8 @@ func GetActivitiesResponse(c *fiber.Ctx, statusCode int, status, message string,
 		Message: message,
 		Data:    &activities,
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }
 
 func GetTodoResponse(c *fiber.Ctx, statusCode int, status, message string, todoModel *models.TodoModel) error {
@@ -84,7 +85,8 @@ func GetTodoResponse(c *fiber.Ctx, statusCode int, status, message string, todoM
 		Message: message,
 		Data:    &todo,
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }
 
 func TodoCreateResponse(c *fiber.Ctx, statusCode int, status, message string, m *map[string]interface{}) error {
@@ -93,7 +95,8 @@ func TodoCreateResponse(c *fiber.Ctx, statusCode int, status, message string, m 
 		Message: message,
 		Data:    m,
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }
 
 func GetTodosResponse(c *fiber.Ctx, statusCode int, status, message string, todosModel []*models.TodoModel) error {
@@ -113,5 +116,7 @@ func GetTodosResponse(c *fiber.Ctx, statusCode int, status, message string, todo
 	if len(todos) == 0 {
 		resp.Data = &temp
 	}
-	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+
+	c.SendStatus(statusCode)
+	return c.JSON(resp)
 }

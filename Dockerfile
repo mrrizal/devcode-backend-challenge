@@ -15,6 +15,7 @@ RUN GOARCH=amd64 \
 #  Runner
 # ---------------------------------------------------------------------
 FROM alpine:3.11
+
 COPY --from=builder /app/main /app/main
 
 WORKDIR /app
