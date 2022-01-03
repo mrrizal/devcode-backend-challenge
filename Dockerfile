@@ -15,8 +15,13 @@ RUN GOARCH=amd64 \
 #  Runner
 # ---------------------------------------------------------------------
 FROM alpine:3.11
+
 COPY --from=builder /app/main /app/main
 
 WORKDIR /app
+
+RUN apk add dumb-init
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 CMD [ "sh", "-c", "/app/main" ]

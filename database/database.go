@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mrrizal/devcode-backend-challenge/configs"
 	"github.com/mrrizal/devcode-backend-challenge/models"
@@ -19,6 +20,11 @@ func InitDatabase(config configs.Conf) error {
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
 	})
+
+	db, _ := DBConn.DB()
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxIdleTime(time.Duration(5 * time.Minute.Minutes()))
 
 	if err != nil {
 		return err

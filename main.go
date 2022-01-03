@@ -25,8 +25,12 @@ func loadEnv() {
 
 func main() {
 	loadEnv()
-	app := fiber.New(fiber.Config{Prefork: false, DisableStartupMessage: true, StreamRequestBody: true,
-		IdleTimeout: time.Duration(30 * time.Second)})
+	app := fiber.New(fiber.Config{
+		Prefork:               true,
+		DisableStartupMessage: true,
+		StreamRequestBody:     true,
+		IdleTimeout:           time.Duration(30 * time.Second),
+	})
 
 	if err := database.InitDatabase(Config); err != nil {
 		log.Fatal(err.Error())
