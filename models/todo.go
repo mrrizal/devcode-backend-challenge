@@ -23,7 +23,7 @@ type TodoModel struct {
 }
 
 func (TodoModel) TableName() string {
-	return "todo"
+	return "todos"
 }
 
 func stringInSlice(a string, list []string) bool {

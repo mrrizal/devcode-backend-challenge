@@ -15,7 +15,7 @@ type ActivityModel struct {
 }
 
 func (ActivityModel) TableName() string {
-	return "activity"
+	return "activities"
 }
 
 func (activity *ActivityModel) Validate() (bool, string) {

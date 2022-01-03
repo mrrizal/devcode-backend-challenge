@@ -24,7 +24,7 @@ func loadEnv() {
 
 func main() {
 	loadEnv()
-	app := fiber.New()
+	app := fiber.New(fiber.Config{Prefork: false})
 
 	if err := database.InitDatabase(Config); err != nil {
 		log.Fatal(err.Error())
