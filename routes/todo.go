@@ -112,7 +112,7 @@ func getTodo(c *fiber.Ctx) error {
 	db.Where("deleted_at is null").Find(&todo, c.Params("id"))
 	if todo.ID == 0 {
 		return parser.GetResponseNoData(c, 404, "Not Found",
-			fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
+			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
 	}
 
 	// set cache
@@ -187,5 +187,85 @@ func getTodos(c *fiber.Ctx) error {
 	}
 
 	return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
+}
 
+func deleteTodo(c *fiber.Ctx) error {
+	db := database.DBConn
+	resp := db.Model(&models.TodoModel{}).Where("id = ? and deleted_at is null", c.Params("id")).
+		Update("deleted_at", time.Now().UTC())
+
+	if resp.Error != nil || resp.RowsAffected == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found", fmt.Sprintf("Todo with ID %s Not Found",
+			c.Params("id")))
+	}
+
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	return parser.GetResponseNoData(c, 200, "Success", "Success")
+}
+
+func updateTodo(c *fiber.Ctx) error {
+	db := database.DBConn
+	tempTodo := new(models.TodoModel)
+
+	m := make(map[string]interface{})
+	if err := c.BodyParser(&m); err != nil {
+		return parser.GetResponseNoData(c, 400, "Bad Request", err.Error())
+	}
+
+	if m["title"] != nil {
+		switch m["title"].(type) {
+		case string:
+			tempTodo.Title = m["title"].(string)
+		}
+	}
+
+	switch m["is_active"].(type) {
+	case string:
+		tempTodo.IsActive = m["is_active"].(string)
+	case bool:
+		tempTodo.IsActive = "1"
+	case nil:
+		tempTodo.IsActive = ""
+	default:
+		tempTodo.IsActive = fmt.Sprintf("%v", m["is_active"])
+	}
+
+	switch m["priority"].(type) {
+	case nil:
+		tempTodo.Priority = ""
+	default:
+		tempTodo.Priority = fmt.Sprintf("%v", m["priority"])
+	}
+
+	var todo *models.TodoModel
+	db.Where("deleted_at is null").Find(&todo, c.Params("id"))
+	if todo.ID == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
+	}
+
+	if tempTodo.Title != "" {
+		todo.Title = tempTodo.Title
+	}
+
+	if tempTodo.IsActive != "" {
+		todo.IsActive = tempTodo.IsActive
+	}
+
+	if tempTodo.Priority != "" {
+		todo.Priority = tempTodo.Priority
+	}
+
+	todo.UpdatedAt = time.Now().UTC()
+
+	isValid, errMessage := todo.Validate()
+	if !isValid {
+		return parser.GetResponseNoData(c, 400, "Bad Request", errMessage)
+	}
+	db.Save(&todo)
+
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
 }

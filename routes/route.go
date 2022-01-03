@@ -23,4 +23,6 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/todo-items/", createTodo)
 	app.Get("/todo-items/:id", getTodo)
 	app.Get("/todo-items/", getTodos)
+	app.Delete("/todo-items/:id", deleteTodo)
+	app.Patch("/todo-items/:id", updateTodo)
 }

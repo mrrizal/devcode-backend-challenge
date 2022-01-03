@@ -131,6 +131,10 @@ func updateActivity(c *fiber.Ctx) error {
 		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
 	}
 
+	if title.Title == "" {
+		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
+	}
+
 	var activity *models.ActivityModel
 	db.Where("deleted_at is null").Find(&activity, c.Params("id"))
 	if activity.ID == 0 {
@@ -156,5 +160,7 @@ func deleteActivity(c *fiber.Ctx) error {
 			c.Params("id")))
 	}
 
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
 	return parser.GetResponseNoData(c, 200, "Success", "Success")
 }
