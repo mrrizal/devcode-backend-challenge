@@ -1,11 +1,15 @@
 package routes
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/mrrizal/devcode-backend-challenge/cache"
 	"github.com/mrrizal/devcode-backend-challenge/database"
 	"github.com/mrrizal/devcode-backend-challenge/models"
 	"github.com/mrrizal/devcode-backend-challenge/parser"
@@ -91,37 +95,97 @@ func createTodo(c *fiber.Ctx) error {
 }
 
 func getTodo(c *fiber.Ctx) error {
-	// db := database.DBConn
-	// todo := new(models.TodoModel)
-	// cache := cache.Cache
-	// expire := 120
-	// key := []byte(fmt.Sprintf("todo-%s", c.Params("id")))
+	db := database.DBConn
+	todo := new(models.TodoModel)
+	cache := cache.Cache
+	expire := 120
+	key := []byte(fmt.Sprintf("todo-%s", c.Params("id")))
 
-	// got, err := cache.Get(key)
-	// if err == nil {
-	// 	if err := json.Unmarshal(got, &todo); err != nil {
-	// 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
-	// 	}
-	// 	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
-	// }
+	got, err := cache.Get(key)
+	if err == nil {
+		if err := json.Unmarshal(got, &todo); err != nil {
+			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+		}
+		return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
+	}
 
-	// db.Where("deleted_at is null").Find(&todo, c.Params("id"))
-	// if todo.ID == 0 {
-	// 	return parser.GetResponseNoData(c, 404, "Not Found",
-	// 		fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
-	// }
+	db.Where("deleted_at is null").Find(&todo, c.Params("id"))
+	if todo.ID == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
+	}
 
-	// // set cache
-	// activitiesBytes := new(bytes.Buffer)
-	// json.NewEncoder(activitiesBytes).Encode(todo)
-	// if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
-	// 	return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
-	// }
+	// set cache
+	activitiesBytes := new(bytes.Buffer)
+	json.NewEncoder(activitiesBytes).Encode(todo)
+	if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
 
-	// return parser.GetActivityResponse(c, 200, "Success", "Success", todo)
-	return nil
+	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
 }
 
 func getTodos(c *fiber.Ctx) error {
-	return nil
+	var activityGroupID string
+	db := database.DBConn
+	cache := cache.Cache
+	var todos []*models.TodoModel
+	expire := 120
+
+	activityGroupID = string(c.Request().URI().QueryArgs().Peek("activity_group_id"))
+
+	key := []byte("todos-items")
+	var firstID, lastID struct {
+		ID int
+	}
+
+	if activityGroupID != "" {
+		key = []byte(fmt.Sprintf("%s-activity_group_id-%s", string(key), activityGroupID))
+	}
+
+	// get data from cache
+	got, err := cache.Get(key)
+	if err == nil {
+		if err := json.Unmarshal(got, &todos); err != nil {
+			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+		}
+		return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
+	}
+
+	bucketSize := 1000
+	resultCount := 0
+	db.Model(&models.TodoModel{}).First(&firstID)
+	db.Model(&models.TodoModel{}).Last(&lastID)
+
+	resultChannel := make(chan []*models.TodoModel)
+	for beginID := firstID.ID; beginID <= lastID.ID; beginID += bucketSize {
+		endID := beginID + bucketSize
+		go func(beginID, endID int) {
+			var tempTodos []*models.TodoModel
+			if activityGroupID != "" {
+				db.Where("deleted_at is null and id >= ? and id < ? and activity_id = ?",
+					beginID, endID, activityGroupID).Find(&tempTodos)
+			} else {
+				db.Where("deleted_at is null and id >= ? and id < ?", beginID, endID).Find(&tempTodos)
+			}
+			resultChannel <- tempTodos
+		}(beginID, endID)
+		resultCount += 1
+	}
+
+	for i := 0; i < resultCount; i++ {
+		tempTodos := <-resultChannel
+		todos = append(todos, tempTodos...)
+	}
+	sort.Slice(todos, func(i, j int) bool { return todos[i].ID < todos[j].ID })
+
+	// set cache
+	todosBytes := new(bytes.Buffer)
+	json.NewEncoder(todosBytes).Encode(todos)
+	if err := cache.Set(key, todosBytes.Bytes(), expire); err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+
+	return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
+
 }

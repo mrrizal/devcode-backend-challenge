@@ -95,3 +95,18 @@ func TodoCreateResponse(c *fiber.Ctx, statusCode int, status, message string, m 
 	}
 	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
 }
+
+func GetTodosResponse(c *fiber.Ctx, statusCode int, status, message string, todosModel []*models.TodoModel) error {
+	var todos []serializer.Todo
+	for _, todoModel := range todosModel {
+		todo := parseTodo(todoModel)
+		todos = append(todos, todo)
+	}
+
+	resp := serializer.TodosResponse{
+		Status:  status,
+		Message: message,
+		Data:    &todos,
+	}
+	return json.NewEncoder(c.Type("json", "utf-8").Status(statusCode).Response().BodyWriter()).Encode(resp)
+}
