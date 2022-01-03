@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mrrizal/devcode-backend-challenge/cache"
@@ -24,7 +25,8 @@ func loadEnv() {
 
 func main() {
 	loadEnv()
-	app := fiber.New(fiber.Config{Prefork: false, DisableStartupMessage: true})
+	app := fiber.New(fiber.Config{Prefork: false, DisableStartupMessage: true, StreamRequestBody: true,
+		IdleTimeout: time.Duration(30 * time.Second)})
 
 	if err := database.InitDatabase(Config); err != nil {
 		log.Fatal(err.Error())
