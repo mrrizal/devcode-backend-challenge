@@ -6,12 +6,12 @@ import (
 )
 
 type ActivityModel struct {
-	ID        int `gorm:"primaryKey"`
+	ID        int
 	Email     string
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt *time.Time `gorm:"index"`
+	DeletedAt *time.Time
 }
 
 func (ActivityModel) TableName() string {

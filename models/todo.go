@@ -11,15 +11,15 @@ var PriorityType [5]string = [5]string{"very-high", "high", "normal", "low", "ve
 
 type TodoModel struct {
 	gorm.Model
-	ID            int           `gorm:"primaryKey"`
-	ActivityID    int           `gorm:"column:activity_group_id" json:"activity_group_id"`
-	ActivityModel ActivityModel `gorm:"foreignKey:ActivityID;references:ID"`
-	Title         string        `json:"title"`
-	IsActive      string        `json:"is_active"`
-	Priority      string        `json:"priority"`
+	ID            int
+	ActivityID    int `json:"activity_group_id"`
+	ActivityModel ActivityModel
+	Title         string `json:"title"`
+	IsActive      string `json:"is_active"`
+	Priority      string `json:"priority"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
-	DeletedAt     *time.Time `gorm:"index:todo_deleted_at"`
+	DeletedAt     *time.Time
 }
 
 func (TodoModel) TableName() string {

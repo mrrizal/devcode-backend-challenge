@@ -27,7 +27,7 @@ func main() {
 	loadEnv()
 	app := fiber.New(fiber.Config{
 		Prefork:               true,
-		DisableStartupMessage: true,
+		DisableStartupMessage: false,
 		StreamRequestBody:     true,
 		IdleTimeout:           time.Duration(30 * time.Second),
 	})
