@@ -299,83 +299,132 @@ func getTodos(c *fiber.Ctx) error {
 	return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
 }
 
-// func deleteTodo(c *fiber.Ctx) error {
-// 	db := database.DBConn
-// 	resp := db.Model(&models.TodoModel{}).Where("id = ? and deleted_at is null", c.Params("id")).
-// 		Update("deleted_at", time.Now().UTC())
+func deleteTodo(c *fiber.Ctx) error {
+	db := database.DBConn
+	stmt, err := db.Prepare("UPDATE todos SET deleted_at=? WHERE deleted_at IS NULL and id=? LIMIT 1")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
 
-// 	if resp.Error != nil || resp.RowsAffected == 0 {
-// 		return parser.GetResponseNoData(c, 404, "Not Found", fmt.Sprintf("Todo with ID %s Not Found",
-// 			c.Params("id")))
-// 	}
+	resp, err := stmt.Exec(time.Now().UTC(), c.Params("id"))
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
 
-// 	cache := cache.Cache
-// 	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
-// 	return parser.GetResponseNoData(c, 200, "Success", "Success")
-// }
+	count, err := resp.RowsAffected()
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
 
-// func updateTodo(c *fiber.Ctx) error {
-// 	db := database.DBConn
-// 	tempTodo := new(models.TodoModel)
+	if count == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
+	}
 
-// 	m := make(map[string]interface{})
-// 	if err := c.BodyParser(&m); err != nil {
-// 		return parser.GetResponseNoData(c, 400, "Bad Request", err.Error())
-// 	}
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	return parser.GetResponseNoData(c, 200, "Success", "Success")
+}
 
-// 	if m["title"] != nil {
-// 		switch m["title"].(type) {
-// 		case string:
-// 			tempTodo.Title = m["title"].(string)
-// 		}
-// 	}
+func updateTodo(c *fiber.Ctx) error {
+	db := database.DBConn
+	tempTodo := new(models.TodoModel)
 
-// 	switch m["is_active"].(type) {
-// 	case string:
-// 		tempTodo.IsActive = m["is_active"].(string)
-// 	case bool:
-// 		tempTodo.IsActive = "1"
-// 	case nil:
-// 		tempTodo.IsActive = ""
-// 	default:
-// 		tempTodo.IsActive = fmt.Sprintf("%v", m["is_active"])
-// 	}
+	m := make(map[string]interface{})
+	if err := c.BodyParser(&m); err != nil {
+		return parser.GetResponseNoData(c, 400, "Bad Request", err.Error())
+	}
 
-// 	switch m["priority"].(type) {
-// 	case nil:
-// 		tempTodo.Priority = ""
-// 	default:
-// 		tempTodo.Priority = fmt.Sprintf("%v", m["priority"])
-// 	}
+	if m["title"] != nil {
+		switch m["title"].(type) {
+		case string:
+			tempTodo.Title = m["title"].(string)
+		}
+	}
 
-// 	var todo *models.TodoModel
-// 	db.Where("deleted_at is null").Find(&todo, c.Params("id"))
-// 	if todo.ID == 0 {
-// 		return parser.GetResponseNoData(c, 404, "Not Found",
-// 			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
-// 	}
+	switch m["is_active"].(type) {
+	case string:
+		tempTodo.IsActive = m["is_active"].(string)
+	case bool:
+		tempTodo.IsActive = "1"
+	case nil:
+		tempTodo.IsActive = ""
+	default:
+		tempTodo.IsActive = fmt.Sprintf("%v", m["is_active"])
+	}
 
-// 	if tempTodo.Title != "" {
-// 		todo.Title = tempTodo.Title
-// 	}
+	switch m["priority"].(type) {
+	case nil:
+		tempTodo.Priority = ""
+	default:
+		tempTodo.Priority = fmt.Sprintf("%v", m["priority"])
+	}
 
-// 	if tempTodo.IsActive != "" {
-// 		todo.IsActive = tempTodo.IsActive
-// 	}
+	var todo models.TodoModel
+	stmt, err := db.Prepare("SELECT id, title, is_active, priority, activity_group_id FROM todos WHERE deleted_at IS NULL AND id=?")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
 
-// 	if tempTodo.Priority != "" {
-// 		todo.Priority = tempTodo.Priority
-// 	}
+	rows, err := stmt.Query(c.Params("id"))
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer rows.Close()
 
-// 	todo.UpdatedAt = time.Now().UTC()
+	for rows.Next() {
+		if err := rows.Scan(&todo.ID, &todo.Title, &todo.IsActive, &todo.Priority, &todo.ActivityID); err != nil {
+			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+		}
+	}
 
-// 	isValid, errMessage := todo.Validate()
-// 	if !isValid {
-// 		return parser.GetResponseNoData(c, 400, "Bad Request", errMessage)
-// 	}
-// 	db.Save(&todo)
+	if todo.ID == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
+	}
 
-// 	cache := cache.Cache
-// 	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
-// 	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
-// }
+	if tempTodo.Title != "" {
+		todo.Title = tempTodo.Title
+	}
+
+	if tempTodo.IsActive != "" {
+		todo.IsActive = tempTodo.IsActive
+	}
+
+	if tempTodo.Priority != "" {
+		todo.Priority = tempTodo.Priority
+	}
+
+	todo.UpdatedAt = time.Now().UTC()
+
+	isValid, errMessage := todo.Validate()
+	if !isValid {
+		return parser.GetResponseNoData(c, 400, "Bad Request", errMessage)
+	}
+
+	stmt, err = db.Prepare("UPDATE todos SET title=?, is_active=?, priority=?, updated_at=? WHERE deleted_at IS NULL AND id=?")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
+
+	resp, err := stmt.Exec(todo.Title, todo.IsActive, todo.Priority, todo.UpdatedAt, todo.ID)
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+
+	rowAffected, err := resp.RowsAffected()
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	if rowAffected == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Todo with ID %s Not Found", c.Params("id")))
+	}
+
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	return parser.GetTodoResponse(c, 200, "Success", "Success", &todo)
+}

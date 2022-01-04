@@ -290,7 +290,6 @@ func updateActivity(c *fiber.Ctx) error {
 
 func deleteActivity(c *fiber.Ctx) error {
 	db := database.DBConn
-	// var activity *models.ActivityModel
 	stmt, err := db.Prepare("UPDATE activities SET deleted_at=? WHERE deleted_at IS NULL and id=? LIMIT 1")
 	if err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
