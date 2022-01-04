@@ -20,9 +20,9 @@ func SetupRoutes(app *fiber.App) {
 	app.Patch("/activity-groups/:id", updateActivity)
 	app.Delete("/activity-groups/:id", deleteActivity)
 
-	// app.Post("/todo-items/", createTodo)
-	// app.Get("/todo-items/:id", getTodo)
-	// app.Get("/todo-items/", getTodos)
+	app.Post("/todo-items/", createTodo)
+	app.Get("/todo-items/:id", getTodo)
+	app.Get("/todo-items/", getTodos)
 	// app.Delete("/todo-items/:id", deleteTodo)
 	// app.Patch("/todo-items/:id", updateTodo)
 }
