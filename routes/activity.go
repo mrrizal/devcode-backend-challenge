@@ -36,6 +36,7 @@ func createActivity(c *fiber.Ctx) error {
 	if err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
+	defer stmt.Close()
 
 	resp, err := stmt.Exec(activity.Email, activity.Title, activity.CreatedAt, activity.UpdatedAt)
 	if err != nil {
@@ -67,7 +68,7 @@ func getActivity(c *fiber.Ctx) error {
 		return parser.GetActivityResponse(c, 200, "Success", "Success", activity)
 	}
 
-	stmt, err := db.Prepare("SELECT id, email, title, created_at, updated_at, deleted_at FROM activities WHERE id = ?")
+	stmt, err := db.Prepare("SELECT id, email, title, created_at, updated_at, deleted_at FROM activities WHERE id = ? AND deleted_at IS NULL LIMIT 1")
 	if err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
@@ -138,6 +139,7 @@ func getActivities(c *fiber.Ctx) error {
 			errs = append(errs, err)
 		}
 		defer rows.Close()
+
 		for rows.Next() {
 			rows.Scan(&firstID)
 		}
@@ -158,6 +160,7 @@ func getActivities(c *fiber.Ctx) error {
 			errs = append(errs, err)
 		}
 		defer rows.Close()
+
 		for rows.Next() {
 			rows.Scan(&lastID)
 		}
@@ -186,8 +189,8 @@ func getActivities(c *fiber.Ctx) error {
 				errs = append(errs, err)
 			}
 			defer stmt.Close()
-			rows, err := stmt.Query(beginID, endID)
 
+			rows, err := stmt.Query(beginID, endID)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -224,46 +227,92 @@ func getActivities(c *fiber.Ctx) error {
 	return parser.GetActivitiesResponse(c, 200, "Success", "Success", activities)
 }
 
-// func updateActivity(c *fiber.Ctx) error {
-// 	db := database.DBConn
-// 	title := struct {
-// 		Title string `json:"title"`
-// 	}{}
+func updateActivity(c *fiber.Ctx) error {
+	db := database.DBConn
+	title := struct {
+		Title string `json:"title"`
+	}{}
 
-// 	if err := c.BodyParser(&title); err != nil {
-// 		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
-// 	}
+	if err := c.BodyParser(&title); err != nil {
+		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
+	}
 
-// 	if title.Title == "" {
-// 		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
-// 	}
+	if title.Title == "" {
+		return parser.GetResponseNoData(c, 400, "Bad Request", "title cannot be null")
+	}
 
-// 	var activity *models.ActivityModel
-// 	db.Where("deleted_at is null").Find(&activity, c.Params("id"))
-// 	if activity.ID == 0 {
-// 		return parser.GetResponseNoData(c, 404, "Not Found",
-// 			fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
-// 	}
-// 	activity.Title = title.Title
-// 	activity.UpdatedAt = time.Now().UTC()
-// 	db.Save(&activity)
+	// var activity *models.ActivityModel
+	stmt, err := db.Prepare("UPDATE activities SET title=?, updated_at=? WHERE deleted_at IS NULL and id=? LIMIT 1")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
 
-// 	cache := cache.Cache
-// 	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
-// 	return parser.GetActivityResponse(c, 200, "Success", "Success", activity)
-// }
+	resp, err := stmt.Exec(title.Title, time.Now().UTC(), c.Params("id"))
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
 
-// func deleteActivity(c *fiber.Ctx) error {
-// 	db := database.DBConn
-// 	resp := db.Model(&models.ActivityModel{}).Where("id = ? and deleted_at is null", c.Params("id")).
-// 		Update("deleted_at", time.Now().UTC())
+	count, err := resp.RowsAffected()
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
 
-// 	if resp.Error != nil || resp.RowsAffected == 0 {
-// 		return parser.GetResponseNoData(c, 404, "Not Found", fmt.Sprintf("Activity with ID %s Not Found",
-// 			c.Params("id")))
-// 	}
+	if count == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
+	}
 
-// 	cache := cache.Cache
-// 	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
-// 	return parser.GetResponseNoData(c, 200, "Success", "Success")
-// }
+	stmt, err = db.Prepare("SELECT id, email, title, created_at, updated_at, deleted_at FROM activities WHERE id = ? AND deleted_at IS NULL LIMIT 1")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(c.Params("id"))
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer rows.Close()
+
+	var activity models.ActivityModel
+	for rows.Next() {
+		if err := rows.Scan(&activity.ID, &activity.Email, &activity.Title, &activity.CreatedAt, &activity.UpdatedAt,
+			&activity.DeletedAt); err != nil {
+			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+		}
+	}
+
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
+	return parser.GetActivityResponse(c, 200, "Success", "Success", &activity)
+}
+
+func deleteActivity(c *fiber.Ctx) error {
+	db := database.DBConn
+	// var activity *models.ActivityModel
+	stmt, err := db.Prepare("UPDATE activities SET deleted_at=? WHERE deleted_at IS NULL and id=? LIMIT 1")
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+	defer stmt.Close()
+
+	resp, err := stmt.Exec(time.Now().UTC(), c.Params("id"))
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+
+	count, err := resp.RowsAffected()
+	if err != nil {
+		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
+	}
+
+	if count == 0 {
+		return parser.GetResponseNoData(c, 404, "Not Found",
+			fmt.Sprintf("Activity with ID %s Not Found", c.Params("id")))
+	}
+
+	cache := cache.Cache
+	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
+	return parser.GetResponseNoData(c, 200, "Success", "Success")
+}

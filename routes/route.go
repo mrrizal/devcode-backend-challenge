@@ -17,8 +17,8 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/activity-groups/", createActivity)
 	app.Get("/activity-groups/", getActivities)
 	app.Get("/activity-groups/:id", getActivity)
-	// app.Patch("/activity-groups/:id", updateActivity)
-	// app.Delete("/activity-groups/:id", deleteActivity)
+	app.Patch("/activity-groups/:id", updateActivity)
+	app.Delete("/activity-groups/:id", deleteActivity)
 
 	// app.Post("/todo-items/", createTodo)
 	// app.Get("/todo-items/:id", getTodo)
