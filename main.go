@@ -24,9 +24,7 @@ func loadEnv() {
 	Config.MysqlDBName = os.Getenv("MYSQL_DBNAME")
 	Config.Log = false
 	log, err := strconv.ParseBool(os.Getenv("LOG"))
-	if err != nil {
-		Config.Log = false
-	} else {
+	if err == nil {
 		Config.Log = log
 	}
 	Config.Port = 3030
@@ -36,7 +34,7 @@ func main() {
 	loadEnv()
 	app := fiber.New(fiber.Config{
 		Prefork:               false,
-		DisableStartupMessage: false,
+		DisableStartupMessage: true,
 		StreamRequestBody:     true,
 		IdleTimeout:           time.Duration(30 * time.Second),
 	})
