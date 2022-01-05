@@ -68,8 +68,8 @@ func InitDatabase(config configs.Conf) error {
 		return err
 	}
 
-	DBConn.SetMaxOpenConns(25)
-	DBConn.SetMaxIdleConns(25)
+	// DBConn.SetMaxOpenConns(25)
+	// DBConn.SetMaxIdleConns(25)
 	DBConn.SetConnMaxIdleTime(time.Duration(5 * time.Minute.Minutes()))
 
 	if err := autoMigrate(); err != nil {

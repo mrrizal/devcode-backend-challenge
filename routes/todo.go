@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,19 +16,47 @@ import (
 	"github.com/mrrizal/devcode-backend-challenge/database"
 	"github.com/mrrizal/devcode-backend-challenge/models"
 	"github.com/mrrizal/devcode-backend-challenge/parser"
+	"github.com/mrrizal/devcode-backend-challenge/serializer"
 )
+
+func structToMap(item interface{}) map[string]interface{} {
+
+	res := map[string]interface{}{}
+	if item == nil {
+		return res
+	}
+	v := reflect.TypeOf(item)
+	reflectValue := reflect.ValueOf(item)
+	reflectValue = reflect.Indirect(reflectValue)
+
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	for i := 0; i < v.NumField(); i++ {
+		tag := v.Field(i).Tag.Get("json")
+		field := reflectValue.Field(i).Interface()
+		if tag != "" && tag != "-" {
+			if v.Field(i).Type.Kind() == reflect.Struct {
+				res[tag] = structToMap(field)
+			} else {
+				res[tag] = field
+			}
+		}
+	}
+	return res
+}
 
 func createTodo(c *fiber.Ctx) error {
 	db := database.DBConn
 	todo := new(models.TodoModel)
+	todoBodyRequest := new(serializer.CreateTodoBodyRequest)
 
-	m := make(map[string]interface{})
-	if err := c.BodyParser(&m); err != nil {
+	if err := c.BodyParser(todoBodyRequest); err != nil {
 		return parser.GetResponseNoData(c, 400, "Bad Request", err.Error())
 	}
 
-	if m["activity_group_id"] != nil && m["activity_group_id"] != "" {
-		activityGroupID := fmt.Sprintf("%v", m["activity_group_id"])
+	if todoBodyRequest.ActivityGroupID != nil {
+		activityGroupID := fmt.Sprintf("%v", todoBodyRequest.ActivityGroupID)
 		activityID, err := strconv.Atoi(activityGroupID)
 		if err != nil {
 			return parser.GetResponseNoData(c, 400, "Bad Request", err.Error())
@@ -35,40 +64,41 @@ func createTodo(c *fiber.Ctx) error {
 		todo.ActivityID = activityID
 	}
 
-	if m["title"] != nil {
-		switch m["title"].(type) {
+	fmt.Println(todoBodyRequest.Title)
+	if todoBodyRequest.Title != nil {
+		switch todoBodyRequest.Title.(type) {
 		case string:
-			todo.Title = m["title"].(string)
+			todo.Title = todoBodyRequest.Title.(string)
 		}
 	}
 
-	switch m["is_active"].(type) {
+	switch todoBodyRequest.IsActive.(type) {
 	case string:
-		todo.IsActive = m["is_active"].(string)
+		todo.IsActive = todoBodyRequest.IsActive.(string)
 	case bool:
 		todo.IsActive = "1"
-		m["is_active"] = true
+		todoBodyRequest.IsActive = true
 	case nil:
 		todo.IsActive = "1"
-		m["is_active"] = true
+		todoBodyRequest.IsActive = true
 	default:
-		todo.IsActive = fmt.Sprintf("%v", m["is_active"])
+		todo.IsActive = fmt.Sprintf("%v", todoBodyRequest.IsActive)
 	}
 
-	switch m["priority"].(type) {
+	switch todoBodyRequest.Priority.(type) {
 	case nil:
 		todo.Priority = "very-high"
-		m["priority"] = "very-high"
+		todoBodyRequest.Priority = "very-high"
 	default:
-		todo.Priority = fmt.Sprintf("%v", m["priority"])
+		todo.Priority = fmt.Sprintf("%v", todoBodyRequest.Priority)
 	}
 
 	now := time.Now().UTC()
 	todo.CreatedAt = now
 	todo.UpdatedAt = now
-	m["created_at"] = fmt.Sprintf("%sZ", now.Format("2006-01-02T15:04:05.000"))
-	m["updated_at"] = fmt.Sprintf("%sZ", now.Format("2006-01-02T15:04:05.000"))
-	m["deleted_at"] = nil
+	todoBodyRequest.CreatedAt = fmt.Sprintf("%sZ", now.Format("2006-01-02T15:04:05.000"))
+	todoBodyRequest.UpdatedAt = fmt.Sprintf("%sZ", now.Format("2006-01-02T15:04:05.000"))
+	todoBodyRequest.DeletedAt = nil
 
 	isValid, message := todo.Validate()
 	if !isValid {
@@ -87,17 +117,12 @@ func createTodo(c *fiber.Ctx) error {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
-	newMap := make(map[string]interface{})
-	for _, key := range []string{"created_at", "updated_at", "id", "title", "activity_group_id", "is_active",
-		"deleted_at", "priority"} {
-		newMap[key] = m[key]
-	}
-
-	newMap["id"], err = resp.LastInsertId()
+	todoBodyRequest.ID, err = resp.LastInsertId()
 	if err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
+	newMap := structToMap(todoBodyRequest)
 	return parser.TodoCreateResponse(c, 201, "Success", "Success", &newMap)
 }
 
@@ -155,7 +180,7 @@ func getTodos(c *fiber.Ctx) error {
 	db := database.DBConn
 	cache := cache.Cache
 	var todos []*models.TodoModel
-	expire := 120
+	expire := 10
 	var wg sync.WaitGroup
 	var errs []error
 
@@ -172,6 +197,8 @@ func getTodos(c *fiber.Ctx) error {
 	got, err := cache.Get(key)
 	if err == nil {
 		if err := json.Unmarshal(got, &todos); err != nil {
+			// fmt.Println("error 1")
+			// fmt.Println(err.Error())
 			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 		}
 		return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
@@ -183,19 +210,19 @@ func getTodos(c *fiber.Ctx) error {
 		stmt, err := db.Prepare("SELECT id FROM todos WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1")
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			defer stmt.Close()
+			rows, err := stmt.Query()
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				defer rows.Close()
+				for rows.Next() {
+					rows.Scan(&firstID)
+				}
+				errs = append(errs, nil)
+			}
 		}
-		defer stmt.Close()
-
-		rows, err := stmt.Query()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			rows.Scan(&firstID)
-		}
-		errs = append(errs, nil)
 	}()
 
 	wg.Add(1)
@@ -204,30 +231,33 @@ func getTodos(c *fiber.Ctx) error {
 		stmt, err := db.Prepare("SELECT id FROM todos WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 1")
 		if err != nil {
 			errs = append(errs, err)
-		}
-		defer stmt.Close()
+		} else {
+			defer stmt.Close()
+			rows, err := stmt.Query()
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				defer rows.Close()
 
-		rows, err := stmt.Query()
-		if err != nil {
-			errs = append(errs, err)
+				for rows.Next() {
+					rows.Scan(&lastID)
+				}
+				errs = append(errs, nil)
+			}
 		}
-		defer rows.Close()
-
-		for rows.Next() {
-			rows.Scan(&lastID)
-		}
-		errs = append(errs, nil)
 	}()
 
 	wg.Wait()
 
 	for _, err := range errs {
 		if err != nil {
+			// fmt.Println("error 2")
+			// fmt.Println(err.Error())
 			return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 		}
 	}
 
-	bucketSize := 300
+	bucketSize := 200
 	resultCount := 0
 
 	resultChannel := make(chan []*models.TodoModel)
@@ -260,22 +290,22 @@ func getTodos(c *fiber.Ctx) error {
 				stmt, err := db.Prepare("SELECT id, created_at, updated_at, deleted_at, activity_group_id, title, is_active, priority FROM todos WHERE deleted_at IS NUll and id >= ? AND id < ?")
 				if err != nil {
 					errs = append(errs, err)
-				}
-				defer stmt.Close()
-
-				rows, err := stmt.Query(beginID, endID)
-				if err != nil {
-					errs = append(errs, err)
-				}
-				defer rows.Close()
-
-				for rows.Next() {
-					var tempTodo models.TodoModel
-					if err := rows.Scan(&tempTodo.ID, &tempTodo.CreatedAt, &tempTodo.UpdatedAt, &tempTodo.DeletedAt,
-						&tempTodo.ActivityID, &tempTodo.Title, &tempTodo.IsActive, &tempTodo.Priority); err != nil {
+				} else {
+					defer stmt.Close()
+					rows, err := stmt.Query(beginID, endID)
+					if err != nil {
 						errs = append(errs, err)
+					} else {
+						defer rows.Close()
+						for rows.Next() {
+							var tempTodo models.TodoModel
+							if err := rows.Scan(&tempTodo.ID, &tempTodo.CreatedAt, &tempTodo.UpdatedAt, &tempTodo.DeletedAt,
+								&tempTodo.ActivityID, &tempTodo.Title, &tempTodo.IsActive, &tempTodo.Priority); err != nil {
+								errs = append(errs, err)
+							}
+							tempTodos = append(tempTodos, &tempTodo)
+						}
 					}
-					tempTodos = append(tempTodos, &tempTodo)
 				}
 			}
 			resultChannel <- tempTodos
@@ -293,6 +323,8 @@ func getTodos(c *fiber.Ctx) error {
 	todosBytes := new(bytes.Buffer)
 	json.NewEncoder(todosBytes).Encode(todos)
 	if err := cache.Set(key, todosBytes.Bytes(), expire); err != nil {
+		// fmt.Println("error 3")
+		// fmt.Println(err.Error())
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 

@@ -28,3 +28,14 @@ type CreateTodoResponse struct {
 	Message string                  `json:"message"`
 	Data    *map[string]interface{} `json:"data"`
 }
+
+type CreateTodoBodyRequest struct {
+	ID              interface{} `json:"id"`
+	ActivityGroupID interface{} `json:"activity_group_id"`
+	Title           interface{} `json:"title"`
+	IsActive        interface{} `json:"is_active"`
+	Priority        interface{} `json:"priority"`
+	CreatedAt       interface{} `json:"created_at"`
+	UpdatedAt       interface{} `json:"updated_at"`
+	DeletedAt       interface{} `json:"deleted_at"`
+}

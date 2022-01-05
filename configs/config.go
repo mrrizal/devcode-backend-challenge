@@ -6,4 +6,5 @@ type Conf struct {
 	MysqlPassword string
 	MysqlDBName   string
 	Port          int
+	Log           bool
 }

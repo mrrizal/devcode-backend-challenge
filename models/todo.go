@@ -3,14 +3,11 @@ package models
 import (
 	"strings"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 var PriorityType [5]string = [5]string{"very-high", "high", "normal", "low", "very-low"}
 
 type TodoModel struct {
-	gorm.Model
 	ID            int
 	ActivityID    int `json:"activity_group_id"`
 	ActivityModel ActivityModel

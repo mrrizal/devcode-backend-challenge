@@ -9,7 +9,7 @@ import (
 var Cache *freecache.Cache
 
 func InitCache() {
-	cacheSize := 200 * 1024 * 1024
+	cacheSize := 500 * 1024 * 1024
 	Cache = freecache.NewCache(cacheSize)
 	debug.SetGCPercent(20)
 }
