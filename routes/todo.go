@@ -98,8 +98,7 @@ func getTodo(c *fiber.Ctx) error {
 	db := database.DBConn
 	todo := new(models.TodoModel)
 	cache := cache.Cache
-	expire := 120
-	key := []byte(fmt.Sprintf("todo-%s", c.Params("id")))
+	key := fmt.Sprintf("todo-%s", c.Params("id"))
 
 	got, err := cache.Get(key)
 	if err == nil {
@@ -118,7 +117,7 @@ func getTodo(c *fiber.Ctx) error {
 	// set cache
 	activitiesBytes := new(bytes.Buffer)
 	json.NewEncoder(activitiesBytes).Encode(todo)
-	if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
+	if err := cache.Set(key, activitiesBytes.Bytes()); err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
@@ -130,17 +129,16 @@ func getTodos(c *fiber.Ctx) error {
 	db := database.DBConn
 	cache := cache.Cache
 	var todos []*models.TodoModel
-	expire := 120
 
 	activityGroupID = string(c.Request().URI().QueryArgs().Peek("activity_group_id"))
 
-	key := []byte("todos-items")
+	key := "todos-items"
 	var firstID, lastID struct {
 		ID int
 	}
 
 	if activityGroupID != "" {
-		key = []byte(fmt.Sprintf("%s-activity_group_id-%s", string(key), activityGroupID))
+		key = fmt.Sprintf("%s-activity_group_id-%s", string(key), activityGroupID)
 	}
 
 	// get data from cache
@@ -182,7 +180,7 @@ func getTodos(c *fiber.Ctx) error {
 	// set cache
 	todosBytes := new(bytes.Buffer)
 	json.NewEncoder(todosBytes).Encode(todos)
-	if err := cache.Set(key, todosBytes.Bytes(), expire); err != nil {
+	if err := cache.Set(key, todosBytes.Bytes()); err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
@@ -200,7 +198,7 @@ func deleteTodo(c *fiber.Ctx) error {
 	}
 
 	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	cache.Delete(fmt.Sprintf("todo-%s", c.Params("id")))
 	return parser.GetResponseNoData(c, 200, "Success", "Success")
 }
 
@@ -266,6 +264,6 @@ func updateTodo(c *fiber.Ctx) error {
 	db.Save(&todo)
 
 	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("todo-%s", c.Params("id"))))
+	cache.Delete(fmt.Sprintf("todo-%s", c.Params("id")))
 	return parser.GetTodoResponse(c, 200, "Success", "Success", todo)
 }

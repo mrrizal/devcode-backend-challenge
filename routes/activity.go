@@ -42,8 +42,7 @@ func getActivity(c *fiber.Ctx) error {
 	db := database.DBConn
 	activity := new(models.ActivityModel)
 	cache := cache.Cache
-	expire := 120
-	key := []byte(fmt.Sprintf("activity-%s", c.Params("id")))
+	key := fmt.Sprintf("activity-%s", c.Params("id"))
 
 	got, err := cache.Get(key)
 	if err == nil {
@@ -62,7 +61,7 @@ func getActivity(c *fiber.Ctx) error {
 	// set cache
 	activitiesBytes := new(bytes.Buffer)
 	json.NewEncoder(activitiesBytes).Encode(activity)
-	if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
+	if err := cache.Set(key, activitiesBytes.Bytes()); err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
@@ -73,9 +72,8 @@ func getActivities(c *fiber.Ctx) error {
 	db := database.DBConn
 	cache := cache.Cache
 	var activities []*models.ActivityModel
-	expire := 120
 
-	key := []byte("activities")
+	key := "activities"
 	var firstID, lastID struct {
 		ID int
 	}
@@ -114,7 +112,7 @@ func getActivities(c *fiber.Ctx) error {
 	// set cache
 	activitiesBytes := new(bytes.Buffer)
 	json.NewEncoder(activitiesBytes).Encode(activities)
-	if err := cache.Set(key, activitiesBytes.Bytes(), expire); err != nil {
+	if err := cache.Set(key, activitiesBytes.Bytes()); err != nil {
 		return parser.GetResponseNoData(c, 500, "Internal Server Error", err.Error())
 	}
 
@@ -146,7 +144,7 @@ func updateActivity(c *fiber.Ctx) error {
 	db.Save(&activity)
 
 	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
+	cache.Delete(fmt.Sprintf("activity-%s", c.Params("id")))
 	return parser.GetActivityResponse(c, 200, "Success", "Success", activity)
 }
 
@@ -161,6 +159,6 @@ func deleteActivity(c *fiber.Ctx) error {
 	}
 
 	cache := cache.Cache
-	cache.Del([]byte(fmt.Sprintf("activity-%s", c.Params("id"))))
+	cache.Delete(fmt.Sprintf("activity-%s", c.Params("id")))
 	return parser.GetResponseNoData(c, 200, "Success", "Success")
 }

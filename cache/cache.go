@@ -1,15 +1,14 @@
 package cache
 
 import (
-	"runtime/debug"
+	"time"
 
-	"github.com/coocood/freecache"
+	"github.com/allegro/bigcache/v3"
 )
 
-var Cache *freecache.Cache
+var Cache *bigcache.BigCache
 
 func InitCache() {
-	cacheSize := 200 * 1024 * 1024
-	Cache = freecache.NewCache(cacheSize)
-	debug.SetGCPercent(20)
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(60 * time.Second))
+	Cache = cache
 }
