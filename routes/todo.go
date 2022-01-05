@@ -64,7 +64,6 @@ func createTodo(c *fiber.Ctx) error {
 		todo.ActivityID = activityID
 	}
 
-	fmt.Println(todoBodyRequest.Title)
 	if todoBodyRequest.Title != nil {
 		switch todoBodyRequest.Title.(type) {
 		case string:
