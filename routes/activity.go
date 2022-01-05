@@ -89,7 +89,7 @@ func getActivities(c *fiber.Ctx) error {
 		return parser.GetActivitiesResponse(c, 200, "Success", "Success", activities)
 	}
 
-	bucketSize := 300
+	bucketSize := 200
 	resultCount := 0
 	db.Model(&models.ActivityModel{}).First(&firstID)
 	db.Model(&models.ActivityModel{}).Last(&lastID)

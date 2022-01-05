@@ -152,7 +152,7 @@ func getTodos(c *fiber.Ctx) error {
 		return parser.GetTodosResponse(c, 200, "Success", "Success", todos)
 	}
 
-	bucketSize := 300
+	bucketSize := 200
 	resultCount := 0
 	db.Model(&models.TodoModel{}).First(&firstID)
 	db.Model(&models.TodoModel{}).Last(&lastID)
